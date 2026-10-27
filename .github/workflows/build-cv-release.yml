@@ -1,0 +1,96 @@
+
+name: Build CV PDF and Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cv-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    name: Render CV and publish release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
+        run: npm install --no-save --no-package-lock playwright
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Render HTML and CSS to PDF
+        run: |
+          node --input-type=module <<'EOF'
+          import { chromium } from 'playwright';
+          import { resolve } from 'node:path';
+          import { pathToFileURL } from 'node:url';
+          import { access } from 'node:fs/promises';
+
+          const htmlPath = resolve('index.html');
+          const cssPath = resolve('style.css');
+
+          await access(htmlPath);
+          await access(cssPath);
+
+          const browser = await chromium.launch({ headless: true });
+
+          try {
+            const page = await browser.newPage({
+              viewport: { width: 1280, height: 1600 },
+              deviceScaleFactor: 1
+            });
+
+            await page.goto(pathToFileURL(htmlPath).href, {
+              waitUntil: 'networkidle'
+            });
+
+            await page.emulateMedia({ media: 'print' });
+
+            await page.evaluate(async () => {
+              await document.fonts.ready;
+            });
+
+            await page.pdf({
+              path: 'cv.pdf',
+              format: 'A4',
+              printBackground: true,
+              preferCSSPageSize: true,
+              displayHeaderFooter: false
+            });
+
+            console.log('Successfully generated cv.pdf');
+          } finally {
+            await browser.close();
+          }
+          EOF
+
+      - name: Create GitHub Release and attach PDF
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cv-${{ github.run_number }}
+          name: CV PDF - Build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          body: |
+            Automated CV PDF generated from the HTML and CSS
+            in this commit.
+
+            Commit: ${{ github.sha }}
+          files: cv.pdf
+          fail_on_unmatched_files: true
+          make_latest: false

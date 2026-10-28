@@ -80,11 +80,15 @@ jobs:
           }
           EOF
 
+      - name: Format release number
+        id: release
+        run: echo "tag=cv-$(printf '%04d' "$GITHUB_RUN_NUMBER")" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release and attach PDF
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: cv-${{ github.run_number }}
-          name: CV PDF - Build ${{ github.run_number }}
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: CV PDF - ${{ steps.release.outputs.tag }}
           target_commitish: ${{ github.sha }}
           body: |
             Automated CV PDF generated from the HTML and CSS

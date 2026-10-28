@@ -267,6 +267,13 @@ a:hover {
     }
 
     .footer {
-        margin-top: 16px;
+        position: fixed;
+        right: 15mm;
+        bottom: 5mm;
+        left: 15mm;
+        margin: 0;
+        padding-top: 3px;
+        border-top: 1px solid var(--line);
+        font-size: 7pt;
     }
 }
